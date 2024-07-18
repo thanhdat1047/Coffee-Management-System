@@ -1,4 +1,4 @@
-import mongoose ,{Document, Model} from "mongoose";
+import mongoose ,{Document, Model, Query} from "mongoose";
 import mongooseDelete, {SoftDeleteModel} from "mongoose-delete";
 
 interface IUser extends Document {
@@ -11,7 +11,6 @@ interface IUser extends Document {
         sessionToken?: string;
     };
 }
-
 const UserSchema = new  mongoose.Schema({
     username : {type: String , required: true, unique:true},
     email: {type: String , required: true, unique:true},
@@ -25,6 +24,7 @@ const UserSchema = new  mongoose.Schema({
     timestamps: true,
 });
 
+
 UserSchema.plugin(mongooseDelete,{
     deletedAt: true,
     overrideMethods: 'all'
@@ -32,7 +32,43 @@ UserSchema.plugin(mongooseDelete,{
 
 export const UserModel = mongoose.model<IUser>("User", UserSchema) as SoftDeleteModel<IUser>;
 //GET
-export const getUsers = () => UserModel.find();
+export const getUsers = async (page: number, limit: number, sortBy: string, sort: string, search: string) => {
+    try {
+        console.log(`Searching for: ${search}`);
+        
+        const sortOrder = sort === 'asc' ? 1 : -1;
+        const sanitizedPage = Math.max(1, page); 
+        const sanitizedLimit = Math.max(1, limit);
+        const searchQuery = search ? { username: { $regex: search, $options: "i" } } : {};
+
+        const users = await UserModel.find(searchQuery)
+        .sort({ [sortBy]: sortOrder })
+        .skip((sanitizedPage - 1) * sanitizedLimit)
+        .limit(sanitizedLimit);
+
+        const total = await UserModel.countDocuments(searchQuery);
+
+        const response = {
+            error: false,
+            total,
+            page: sanitizedPage,
+            limit: sanitizedLimit,
+            search,
+            sortBy,
+            sortOrder: sort,
+            users,
+            message:'Successfully'
+        };
+
+        return response;
+    } catch (error) {
+        console.error(error);
+        return {
+            error: true,
+            message: "Error fetching users"
+        };
+    }
+};
 export const getUserByEmail = (email: String) => UserModel.findOne({email});
 export const getUserByUsername = (username: String) => UserModel.findOne({username});
 export const getUserBySessionToken = (sessionToken : String) => UserModel.findOne({

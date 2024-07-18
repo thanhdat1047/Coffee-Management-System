@@ -4,11 +4,21 @@ import { deleteUserById, getUserById, getUserByUsername, getUsers, getUsersDelet
 //[GET] users/
 export const getAllUsers = async (req:Request, res: Response) => {
     try {
-        const users = await getUsers();
-        return res.status(200).json(users);
+        const page = req.query.page ? parseInt(req.query.page as string) - 1 : 0;
+        const limit =req.query.limit ? parseInt(req.query.limit as string) : 5;
+		const search = req.query.search as string || "";
+        const sortOrder = (req.query.sortOrder as string) === 'asc' ? 'asc' : 'desc';
+        const sortBy = req.query.sortBy || 'username';
+        
+        const data = await getUsers(page,limit,sortBy as string,sortOrder,search);
+        
+        if(data.error){
+            return res.status(401).json({mess: data.message})
+        }
+        return res.status(200).json(data);
     } catch (error) {
         console.log(error);
-        return res.sendStatus(400);
+        return res.sendStatus(400); 
     }
 };
 
